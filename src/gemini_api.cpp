@@ -75,6 +75,5 @@ String inviaImmagineAGemini(uint8_t* imgBuffer, size_t imgLen) {
 
     http.end();
     
-    // QUESTA ERA LA RIGA MANCANTE!
     return response;
 }
