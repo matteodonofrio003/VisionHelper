@@ -1,40 +1,21 @@
 // src/main.cpp
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WebServer.h>
 #include "esp_camera.h"
 
+// Includiamo i nostri moduli
 #include "../include/config.h"
 #include "feedback.h"
-
-WebServer server(80);
-
-// Variabile globale per conservare l'ultima foto scattata
-camera_fb_t * last_photo = nullptr;
-
-// Funzione richiamata quando si visita l'indirizzo IP
-void handleWebCapture() {
-  // Se non abbiamo ancora scattato nessuna foto
-  if (last_photo == nullptr) {
-    server.send(200, "text/plain", "Nessuna foto in memoria. Premi il bottone fisico per scattarne una!");
-    return;
-  }
-
-  // Se la foto c'è, la mostriamo senza scattarne una nuova
-  server.setContentLength(last_photo->len);
-  server.send(200, "image/jpeg", "");
-  WiFiClient client = server.client();
-  client.write(last_photo->buf, last_photo->len);
-  
-  Serial.println("Foto visualizzata sul browser.");
-}
+#include "gemini_api.h"
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("\n--- Avvio VisionHelper ESP32 ---");
   
+  // 1. Inizializza Hardware di Input/Output
   initFeedback();
 
-  // Configura Fotocamera
+  // 2. Configura Fotocamera
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -42,59 +23,78 @@ void setup() {
   config.pin_d3 = Y5_GPIO_NUM; config.pin_d4 = Y6_GPIO_NUM; config.pin_d5 = Y7_GPIO_NUM;
   config.pin_d6 = Y8_GPIO_NUM; config.pin_d7 = Y9_GPIO_NUM; config.pin_xclk = XCLK_GPIO_NUM;
   config.pin_pclk = PCLK_GPIO_NUM; config.pin_vsync = VSYNC_GPIO_NUM; config.pin_href = HREF_GPIO_NUM;
-  config.pin_sccb_sda = SIOD_GPIO_NUM; config.pin_sccb_scl = SIOC_GPIO_NUM; // Nomi corretti senza warning!
+  config.pin_sccb_sda = SIOD_GPIO_NUM; config.pin_sccb_scl = SIOC_GPIO_NUM; 
   config.pin_pwdn = PWDN_GPIO_NUM; config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_JPEG;
+  config.pixel_format = PIXFORMAT_JPEG; // Formato richiesto [cite: 8]
 
   if(psramFound()){
-    config.frame_size = FRAMESIZE_VGA;
+    config.frame_size = FRAMESIZE_VGA; // Risoluzione 640x480 [cite: 8]
     config.jpeg_quality = 10;
-    config.fb_count = 2; // Lasciamo 2 buffer per evitare colli di bottiglia
+    config.fb_count = 2; 
+    Serial.println("PSRAM OK - Risoluzione VGA impostata.");
   } else {
     config.frame_size = FRAMESIZE_SVGA;
     config.jpeg_quality = 12;
     config.fb_count = 1;
+    Serial.println("ATTENZIONE: PSRAM non trovata!");
   }
 
   if (esp_camera_init(&config) != ESP_OK) {
-    Serial.println("Errore avvio fotocamera!");
+    Serial.println("ERRORE: Inizializzazione fotocamera fallita!");
     return;
   }
 
-  // Connessione Wi-Fi
+  // 3. Connessione Wi-Fi [cite: 9]
+  Serial.print("Connessione al Wi-Fi: ");
+  Serial.println(SSID_NAME);
   WiFi.begin(SSID_NAME, WIFI_PASS);
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
-  Serial.print("\nIP Web Server: http://");
-  Serial.println(WiFi.localIP());
-
-  // Avvia Server
-  server.on("/", HTTP_GET, handleWebCapture);
-  server.begin();
+  
+  while (WiFi.status() != WL_CONNECTED) { 
+    delay(500); 
+    Serial.print("."); 
+  }
+  Serial.println("\nWi-Fi Connesso! Dispositivo pronto all'uso.");
+  Serial.println("Premi il bottone per scattare e analizzare l'immagine.");
 }
 
 void loop() {
-  server.handleClient();
-
-  // Se il bottone viene premuto (grazie al debounce nel nostro modulo!)
+  // Il debounce è gestito internamente dal modulo
   if (isButtonPressed()) {
-    Serial.println("Bottone premuto! Scatto foto in corso...");
-    playBuzzerBeep(); // Feedback all'utente
     
-    // 1. Se c'è già una vecchia foto in memoria, la cancelliamo per fare spazio
-    if (last_photo != nullptr) {
-      esp_camera_fb_return(last_photo);
-      last_photo = nullptr;
+    // Feedback immediato di avvenuto scatto [cite: 13]
+    playBuzzerBeep(); 
+    Serial.println("\n--- Nuova Acquisizione ---");
+    Serial.println("1. Scatto foto in corso...");
+    
+    unsigned long startTime = millis(); // Misuriamo la latenza
+    
+    // Acquisizione Immagine [cite: 8]
+    camera_fb_t * fb = esp_camera_fb_get();
+    
+    if (!fb) {
+      Serial.println("ERRORE: Impossibile scattare la foto.");
+      // Qui potresti inserire un feedback di errore lungo [cite: 15]
+      return;
     }
 
-    // 2. Scattiamo la NUOVA foto e la salviamo nella variabile globale
-    last_photo = esp_camera_fb_get();
+    Serial.printf("   Foto acquisita! (%zu bytes)\n", fb->len);
+    Serial.println("2. Elaborazione AI in corso... (Attesa risposta da Gemini)");
     
-    if (last_photo) {
-      Serial.printf("Foto acquisita con successo! Dimensione: %zu bytes\n", last_photo->len);
-      Serial.println("Ora puoi ricaricare la pagina web per vederla.");
-    } else {
-      Serial.println("Errore: Impossibile scattare la foto!");
-    }
+    // Invio Immagine alle API di Gemini [cite: 10]
+    String descrizione = inviaImmagineAGemini(fb->buf, fb->len);
+    
+    // Libera immediatamente la memoria occupata dalla foto 
+    esp_camera_fb_return(fb);
+
+    // Stampa il risultato
+    Serial.println("\n--- Risultato Analisi Gemini ---");
+    Serial.println(descrizione);
+    Serial.println("--------------------------------");
+    
+    unsigned long endTime = millis();
+    Serial.printf("Tempo totale di elaborazione: %lu ms\n", (endTime - startTime));
+    
+    // Il dispositivo è pronto per un nuovo scatto
   }
 }
