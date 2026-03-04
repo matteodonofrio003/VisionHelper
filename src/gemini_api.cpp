@@ -3,7 +3,7 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include "mbedtls/base64.h" 
-#include "../include/config.h"
+#include "config.h"
 
 String inviaImmagineAGemini(uint8_t* imgBuffer, size_t imgLen) {
     if (WiFi.status() != WL_CONNECTED) return "Errore: Wi-Fi non connesso";
