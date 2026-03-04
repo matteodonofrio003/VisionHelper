@@ -8,8 +8,8 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "C:/VisionHelper/include",
-                "C:/VisionHelper/src",
+                "C:/VisionHelper/firmware/include",
+                "C:/VisionHelper/firmware/src",
                 "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/WebServer/src",
                 "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/FS/src",
                 "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/HTTPClient/src",
@@ -17,7 +17,7 @@
                 "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src",
                 "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/Preferences/src",
                 "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src",
-                "C:/VisionHelper/.pio/libdeps/esp32dev/ArduinoJson/src",
+                "C:/VisionHelper/firmware/.pio/libdeps/esp32dev/ArduinoJson/src",
                 "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include",
                 "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include",
                 "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos",
@@ -245,8 +245,8 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "C:/VisionHelper/include",
-                    "C:/VisionHelper/src",
+                    "C:/VisionHelper/firmware/include",
+                    "C:/VisionHelper/firmware/src",
                     "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/WebServer/src",
                     "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/FS/src",
                     "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/HTTPClient/src",
@@ -254,7 +254,7 @@
                     "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src",
                     "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/Preferences/src",
                     "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/libraries/BLE/src",
-                    "C:/VisionHelper/.pio/libdeps/esp32dev/ArduinoJson/src",
+                    "C:/VisionHelper/firmware/.pio/libdeps/esp32dev/ArduinoJson/src",
                     "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include",
                     "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include",
                     "C:/Users/acest/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos",
