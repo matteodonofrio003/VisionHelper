@@ -1,9 +1,10 @@
+// src/gemini_api.cpp
 #include "gemini_api.h"
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include "mbedtls/base64.h" 
-#include "config.h"
+#include "../include/config.h" // Legge la chiave da qui!
 
 String inviaImmagineAGemini(uint8_t* imgBuffer, size_t imgLen) {
     if (WiFi.status() != WL_CONNECTED) return "Errore: Wi-Fi non connesso";
@@ -23,6 +24,8 @@ String inviaImmagineAGemini(uint8_t* imgBuffer, size_t imgLen) {
     
     HTTPClient http;
     String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=";
+    
+    // Aggiunge l'API Key letta dal file config.h
     url += GEMINI_API_KEY;
 
     http.begin(client, url);

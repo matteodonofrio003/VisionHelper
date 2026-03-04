@@ -1,20 +1,18 @@
 // src/main.cpp
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WebServer.h>
+#include <WebServer.h> // REINSERITO PER IL DEBUG
 #include "esp_camera.h"
 
-// Includiamo i nostri moduli
-#include "../include/config.h"
+#include "../include/config.h" 
 #include "feedback.h"
 #include "gemini_api.h"
+#include "ble_config.h"
 
-WebServer server(80);
-
-// Variabile globale per conservare l'ultima foto
 camera_fb_t * last_photo = nullptr;
+WebServer server(80); // REINSERITO
 
-// Mostra l'ultima foto scattata senza acquisirne di nuove
+// --- FUNZIONE VETRINA WEB ---
 void handleWebView() {
   if (last_photo == nullptr) {
     server.send(200, "text/plain", "Nessuna foto in memoria. Premi il bottone fisico per scattare!");
@@ -27,12 +25,39 @@ void handleWebView() {
   WiFiClient client = server.client();
   client.write(last_photo->buf, last_photo->len);
 }
+// ----------------------------
 
 void setup() {
   Serial.begin(115200);
   Serial.println("\n--- Avvio VisionHelper ESP32 ---");
   
   initFeedback();
+  initBLE();
+  //clearCredentials(); //utilizzata temporaneamente per testare il BLE
+  String ssid = getSavedSSID();
+  String pass = getSavedPassword();
+
+  // 3. Modalità PROVISIONING (Se manca l'SSID o la Password)
+  if (ssid == "" || pass == "") {
+    Serial.println("\n[!] ATTENZIONE: Credenziali Wi-Fi mancanti o incomplete!");
+    Serial.println("Il dispositivo e' in modalita' CONFIGURAZIONE.");
+    Serial.println("Connettiti via Bluetooth (VisionHelper_Config) per inserire i dati.");
+    
+    // Suono di avviso (due bip rapidi)
+    playBuzzerBeep(); delay(150); playBuzzerBeep();
+    
+    // Il dispositivo resta bloccato qui finché non riceve ENTRAMBI i dati dall'App
+    while (getSavedSSID() == "" || getSavedPassword() == "") {
+      delay(1000);
+    }
+    
+    Serial.println("\n[+] Dati Wi-Fi (SSID e Password) ricevuti completi!");
+    Serial.println("Attendo 2 secondi prima di riavviare per applicare le modifiche...");
+    delay(2000);
+    ESP.restart();
+  }
+
+  Serial.println("\nCredenziali Wi-Fi trovate in memoria. Configuro l'hardware...");
 
   // Configura Fotocamera
   camera_config_t config;
@@ -50,7 +75,7 @@ void setup() {
   if(psramFound()){
     config.frame_size = FRAMESIZE_VGA;
     config.jpeg_quality = 10;
-    config.fb_count = 2; // Necessario per tenere 1 foto in memoria mentre la camera è pronta per la successiva
+    config.fb_count = 2;
   } else {
     config.frame_size = FRAMESIZE_SVGA;
     config.jpeg_quality = 12;
@@ -62,34 +87,49 @@ void setup() {
     return;
   }
 
-  // --- NUOVO BLOCCO: Orientamento Fotocamera ---
   sensor_t * s = esp_camera_sensor_get();
   if (s != NULL) {
-    s->set_vflip(s, 1);   // 1 = Capovolge verticalmente
-    s->set_hmirror(s, 1); // 1 = Specchia orizzontalmente (Da destra a sinistra)
+    s->set_vflip(s, 1);
+    s->set_hmirror(s, 1);
   }
-  // ---------------------------------------------
 
   // Connessione Wi-Fi
   Serial.print("Connessione al Wi-Fi: ");
-  Serial.println(SSID_NAME);
-  WiFi.begin(SSID_NAME, WIFI_PASS);
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  Serial.println(ssid);
+  WiFi.begin(ssid.c_str(), pass.c_str());
   
-  Serial.println("\nWi-Fi Connesso!");
-  
-  // Avvia il server web per visualizzare l'ultima foto
-  server.on("/", HTTP_GET, handleWebView);
-  server.begin();
-  
-  Serial.print("Vetrina foto attiva su: http://");
-  Serial.println(WiFi.localIP());
-  Serial.println("Premi il bottone fisico per scattare e analizzare.");
+  int tentativi = 0;
+  while (WiFi.status() != WL_CONNECTED && tentativi < 20) { 
+    delay(500); 
+    Serial.print("."); 
+    tentativi++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWi-Fi Connesso! Dispositivo pronto all'uso.");
+    stopBLE();
+    // --- AVVIO SERVER WEB PER DEBUG ---
+    server.on("/", HTTP_GET, handleWebView);
+    server.begin();
+    Serial.print("Vetrina foto attiva su: http://");
+    Serial.println(WiFi.localIP());
+    // ----------------------------------
+    
+    playBuzzerBeep(); 
+  } else {
+    Serial.println("\nERRORE: Impossibile connettersi al Wi-Fi. Usa il BLE per cambiare password.");
+  }
 }
 
 void loop() {
+  if (isBLEConnected()) {
+    delay(100);
+    return; 
+  }
+
   server.handleClient();
 
+  // --- LOGICA DI SCATTO ---
   if (isButtonPressed()) {
     playBuzzerBeep(); 
     Serial.println("\n--- Nuova Acquisizione AI ---");
@@ -97,35 +137,33 @@ void loop() {
     
     unsigned long startTime = millis();
     
-    // Svuotiamo la memoria dalla vecchia foto prima di scattare la nuova
     if (last_photo != nullptr) {
       esp_camera_fb_return(last_photo);
       last_photo = nullptr;
     }
 
-    // Acquisiamo la nuova foto e la assegniamo alla variabile globale
     last_photo = esp_camera_fb_get();
     
     if (!last_photo) {
-      Serial.println("ERRORE: Impossibile scattare la foto per Gemini.");
+      Serial.println("ERRORE: Impossibile scattare la foto.");
       return;
     }
 
     Serial.printf("   Foto acquisita! (%zu bytes)\n", last_photo->len);
     Serial.println("2. Elaborazione AI in corso... (Attesa risposta da Gemini)");
     
-    // Invia Immagine alle API usando il buffer globale
+    // Invio immagine alle API
     String descrizione = inviaImmagineAGemini(last_photo->buf, last_photo->len);
     
-    // NOTA BENE: NON chiamiamo più esp_camera_fb_return(last_photo) qui!
-    // La foto rimane in memoria a disposizione del server web.
-
-    // Stampa Risultato
+    // Stampa risultato
     Serial.println("\n--- Risultato Analisi Gemini ---");
     Serial.println(descrizione);
     Serial.println("--------------------------------");
     
     unsigned long endTime = millis();
     Serial.printf("Tempo totale di elaborazione: %lu ms\n", (endTime - startTime));
+    
+    Serial.print("Puoi vedere la foto appena analizzata su: http://");
+    Serial.println(WiFi.localIP());
   }
 }
