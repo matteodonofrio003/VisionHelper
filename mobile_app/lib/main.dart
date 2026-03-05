@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'wifi_config_screen.dart'; // Importiamo la nuova schermata
+import 'wifi_config_screen.dart';
+import 'magnifier_wrapper.dart'; 
+import 'instructions_screen.dart'; // Import della schermata istruzioni
 
-const String visionServiceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+const String visionServiceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b"; 
 
 void main() {
   runApp(const VisionHelperApp());
@@ -47,7 +49,7 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _initBle() async {
     await [Permission.bluetoothScan, Permission.bluetoothConnect, Permission.location].request();
     FlutterBluePlus.onScanResults.listen((results) {
-      if (mounted) setState(() => _devices = results.where((r) => r.device.advName == "VisionHelper_Config").toList());
+      if (mounted) setState(() => _devices = results.where((r) => r.device.advName == "VisionHelper_Config").toList()); 
     });
     FlutterBluePlus.isScanning.listen((state) {
       if (mounted) setState(() => _isScanning = state);
@@ -78,7 +80,6 @@ class _ScanScreenState extends State<ScanScreen> {
 
       setState(() => _isConnecting = false);
 
-      // Invece di aprire il popup, navighiamo alla nuova pagina full-screen
       if (mounted) {
         Navigator.push(
           context,
@@ -98,30 +99,54 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("VisionHelper"), backgroundColor: Theme.of(context).colorScheme.inversePrimary),
-      body: _devices.isEmpty 
-        ? const Center(child: Text("Nessun VisionHelper trovato.\nPremi la lente per cercare.", textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey)))
-        : ListView.builder(
-            itemCount: _devices.length,
-            itemBuilder: (context, index) {
-              final device = _devices[index].device;
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ListTile(
-                  leading: const Icon(Icons.bluetooth_connected, color: Colors.blueGrey),
-                  title: Text(device.advName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(device.remoteId.str),
-                  trailing: _isConnecting 
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(onPressed: () => _connectAndConfigure(device), child: const Text("Configura")),
-                ),
-              );
-            },
-          ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _isScanning || _isConnecting ? null : _startScan,
-        child: _isScanning ? const CircularProgressIndicator(color: Colors.white) : const Icon(Icons.search),
+    return MagnifierWrapper(
+      child: Scaffold(
+        appBar: AppBar(title: const Text("VisionHelper"), backgroundColor: Theme.of(context).colorScheme.inversePrimary),
+        // Sostituiamo il body vuoto con il pulsante delle istruzioni
+        body: _devices.isEmpty 
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Nessun VisionHelper trovato.", style: TextStyle(fontSize: 24, color: Colors.grey)),
+                  const SizedBox(height: 10),
+                  const Text("Premi la lente per cercare.", style: TextStyle(fontSize: 16, color: Colors.grey)),
+                  const SizedBox(height: 50),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20), 
+                      backgroundColor: Colors.yellowAccent, 
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                    ),
+                    icon: const Icon(Icons.help_outline, size: 36),
+                    label: const Text("COME RICONFIGURARE", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const InstructionsScreen())),
+                  )
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: _devices.length,
+              itemBuilder: (context, index) {
+                final device = _devices[index].device;
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.bluetooth_connected, color: Colors.blueGrey),
+                    title: Text(device.advName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(device.remoteId.str),
+                    trailing: _isConnecting 
+                      ? const CircularProgressIndicator()
+                      : ElevatedButton(onPressed: () => _connectAndConfigure(device), child: const Text("Configura")),
+                  ),
+                );
+              },
+            ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _isScanning || _isConnecting ? null : _startScan,
+          child: _isScanning ? const CircularProgressIndicator(color: Colors.white) : const Icon(Icons.search),
+        ),
       ),
     );
   }
