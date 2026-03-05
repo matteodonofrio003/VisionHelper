@@ -56,9 +56,23 @@ class _ScanScreenState extends State<ScanScreen> {
     });
   }
 
+  // FIX APLICATO QUI: Assicuriamo lo spegnimento dello stato
   void _startScan() async {
-    _devices.clear();
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+    if (_isScanning) return;
+    
+    setState(() {
+      _isScanning = true;
+      _devices.clear();
+    });
+    
+    try {
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint("Errore scansione: $e");
+    } finally {
+      // Questo viene eseguito SEMPRE, anche se la libreria va in timeout senza avvisare
+      if (mounted) setState(() => _isScanning = false);
+    }
   }
 
   Future<void> _connectAndConfigure(BluetoothDevice device) async {
@@ -99,7 +113,6 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // IL MAGNIFIER WRAPPER AVVOLGE TUTTO
     return MagnifierWrapper(
       child: Scaffold(
         appBar: AppBar(title: const Text("VisionHelper"), backgroundColor: Theme.of(context).colorScheme.inversePrimary),
@@ -147,19 +160,21 @@ class _ScanScreenState extends State<ScanScreen> {
               },
             ),
             
-        // IL PULSANTE DI SCANSIONE (SEMPRE A DESTRA)
-        floatingActionButton: _isScanning || _isConnecting
-            ? const SizedBox.shrink() // Scompare durante la scansione
-            : SizedBox(
-                width: 70, height: 70, // Stessa grandezza del tasto lente
-                child: FloatingActionButton(
-                  heroTag: "scan_ble_btn",
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  onPressed: _startScan,
-                  child: const Icon(Icons.bluetooth_searching, size: 36),
-                ),
-              ),
+        // FIX APPLICATO QUI: Il bottone non scompare più, ma cambia stato
+        floatingActionButton: SizedBox(
+          width: 70, height: 70, 
+          child: FloatingActionButton(
+            heroTag: "scan_ble_btn",
+            // Se sta scansionando, diventa grigio. Altrimenti è blu.
+            backgroundColor: _isScanning || _isConnecting ? Colors.grey : Colors.blueAccent,
+            foregroundColor: Colors.white,
+            onPressed: _isScanning || _isConnecting ? null : _startScan,
+            // Mostra la rotellina se sta scansionando
+            child: _isScanning || _isConnecting
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Icon(Icons.bluetooth_searching, size: 36),
+          ),
+        ),
       ),
     );
   }

@@ -19,27 +19,35 @@ class _MagnifierWrapperState extends State<MagnifierWrapper> {
   @override
   Widget build(BuildContext context) {
     final Size screenSize = MediaQuery.of(context).size;
-    // Calcoliamo lo spazio occupato dalla barra di navigazione inferiore del telefono
     final double bottomSafeArea = MediaQuery.of(context).padding.bottom;
 
     return Stack(
+      fit: StackFit.expand,
       children: [
         // 1. IL CONTENUTO DELLA PAGINA SOTTOSTANTE
-        Listener(
-          onPointerDown: (event) {
-            if (_isMagnifierActive) {
-              setState(() => _pointerPosition = event.position);
-            }
-          },
-          onPointerMove: (event) {
-            if (_isMagnifierActive) {
-              setState(() => _pointerPosition = event.position);
-            }
-          },
+        // Fix: Se la lente è attiva, "congeliamo" la pagina assorbendo i tocchi.
+        // In questo modo è impossibile far scorrere la pagina per sbaglio!
+        AbsorbPointer(
+          absorbing: _isMagnifierActive,
           child: widget.child,
         ),
 
-        // 2. LA LENTE DI INGRANDIMENTO
+        // 2. IL VETRO INVISIBILE CHE CATTURA IL DITO (Attivo solo con la lente)
+        if (_isMagnifierActive)
+          Positioned.fill(
+            child: GestureDetector(
+              onPanDown: (details) {
+                setState(() => _pointerPosition = details.globalPosition);
+              },
+              onPanUpdate: (details) {
+                setState(() => _pointerPosition = details.globalPosition);
+              },
+              // Un contenitore trasparente per catturare i tocchi su tutto lo schermo
+              child: Container(color: Colors.transparent), 
+            ),
+          ),
+
+        // 3. LA LENTE DI INGRANDIMENTO
         if (_isMagnifierActive)
           Positioned(
             left: _pointerPosition.dx - _magnifierRadius,
@@ -53,14 +61,13 @@ class _MagnifierWrapperState extends State<MagnifierWrapper> {
                 ),
                 size: const Size(_magnifierRadius * 2, _magnifierRadius * 2),
                 magnificationScale: 2.0,
-                focalPointOffset: Offset.zero, 
+                focalPointOffset: const Offset(0, _fingerGap), 
               ),
             ),
           ),
 
-        // 3. IL TASTO FLUTTUANTE DELLA LENTE (SEMPRE VISIBILE E ALLINEATO)
+        // 4. IL TASTO FLUTTUANTE DELLA LENTE (Sempre cliccabile perché è in cima)
         Positioned(
-          // Posizione calcolata: Barra di sistema + 16 pixel (margine standard del FloatingActionButton)
           bottom: bottomSafeArea + 16, 
           left: 16, 
           width: 70, height: 70, 
@@ -72,6 +79,7 @@ class _MagnifierWrapperState extends State<MagnifierWrapper> {
               setState(() {
                 _isMagnifierActive = !_isMagnifierActive;
                 if (_isMagnifierActive) {
+                  // Posiziona la lente al centro quando la accendi
                   _pointerPosition = Offset(screenSize.width / 2, screenSize.height / 2);
                 }
               });

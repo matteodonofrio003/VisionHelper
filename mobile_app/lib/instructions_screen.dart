@@ -1,8 +1,23 @@
 import 'package:flutter/material.dart';
 import 'magnifier_wrapper.dart';
 
-class InstructionsScreen extends StatelessWidget {
+// Trasformato in StatefulWidget per poter gestire il controller dello scroll
+class InstructionsScreen extends StatefulWidget {
   const InstructionsScreen({super.key});
+
+  @override
+  State<InstructionsScreen> createState() => _InstructionsScreenState();
+}
+
+class _InstructionsScreenState extends State<InstructionsScreen> {
+  // Questo controller farà da "ancora" per impedire alla pagina di saltare in alto
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,8 +30,8 @@ class InstructionsScreen extends StatelessWidget {
           foregroundColor: Colors.white,
           iconTheme: const IconThemeData(size: 40),
         ),
-        // SOSTITUIAMO Padding con SingleChildScrollView
         body: SingleChildScrollView(
+          controller: _scrollController, // Assegniamo l'ancora qui!
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -42,7 +57,7 @@ class InstructionsScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 24, color: Colors.white, height: 1.5),
                 ),
               ),
-              const SizedBox(height: 60), // Spazio al posto di Spacer
+              const SizedBox(height: 60), 
               Semantics(
                 button: true,
                 label: "Ho capito, torna indietro",
