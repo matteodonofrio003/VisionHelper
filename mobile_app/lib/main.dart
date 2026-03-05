@@ -3,7 +3,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'wifi_config_screen.dart';
 import 'magnifier_wrapper.dart'; 
-import 'instructions_screen.dart'; // Import della schermata istruzioni
+import 'instructions_screen.dart'; 
 
 const String visionServiceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b"; 
 
@@ -99,31 +99,34 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // IL MAGNIFIER WRAPPER AVVOLGE TUTTO
     return MagnifierWrapper(
       child: Scaffold(
         appBar: AppBar(title: const Text("VisionHelper"), backgroundColor: Theme.of(context).colorScheme.inversePrimary),
-        // Sostituiamo il body vuoto con il pulsante delle istruzioni
         body: _devices.isEmpty 
           ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Nessun VisionHelper trovato.", style: TextStyle(fontSize: 24, color: Colors.grey)),
-                  const SizedBox(height: 10),
-                  const Text("Premi la lente per cercare.", style: TextStyle(fontSize: 16, color: Colors.grey)),
-                  const SizedBox(height: 50),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20), 
-                      backgroundColor: Colors.yellowAccent, 
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Nessun VisionHelper trovato.", style: TextStyle(fontSize: 24, color: Colors.grey, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                    const SizedBox(height: 10),
+                    const Text("Premi l'icona Blu in basso a destra per cercare.", style: TextStyle(fontSize: 16, color: Colors.grey), textAlign: TextAlign.center),
+                    const SizedBox(height: 50),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20), 
+                        backgroundColor: Colors.yellowAccent, 
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                      ),
+                      icon: const Icon(Icons.help_outline, size: 36),
+                      label: const Text("COME RICONFIGURARE", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const InstructionsScreen())),
                     ),
-                    icon: const Icon(Icons.help_outline, size: 36),
-                    label: const Text("COME RICONFIGURARE", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const InstructionsScreen())),
-                  )
-                ],
+                  ],
+                ),
               ),
             )
           : ListView.builder(
@@ -143,10 +146,20 @@ class _ScanScreenState extends State<ScanScreen> {
                 );
               },
             ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _isScanning || _isConnecting ? null : _startScan,
-          child: _isScanning ? const CircularProgressIndicator(color: Colors.white) : const Icon(Icons.search),
-        ),
+            
+        // IL PULSANTE DI SCANSIONE (SEMPRE A DESTRA)
+        floatingActionButton: _isScanning || _isConnecting
+            ? const SizedBox.shrink() // Scompare durante la scansione
+            : SizedBox(
+                width: 70, height: 70, // Stessa grandezza del tasto lente
+                child: FloatingActionButton(
+                  heroTag: "scan_ble_btn",
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  onPressed: _startScan,
+                  child: const Icon(Icons.bluetooth_searching, size: 36),
+                ),
+              ),
       ),
     );
   }

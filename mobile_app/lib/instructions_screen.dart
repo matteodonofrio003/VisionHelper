@@ -15,7 +15,8 @@ class InstructionsScreen extends StatelessWidget {
           foregroundColor: Colors.white,
           iconTheme: const IconThemeData(size: 40),
         ),
-        body: Padding(
+        // SOSTITUIAMO Padding con SingleChildScrollView
+        body: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -37,11 +38,11 @@ class InstructionsScreen extends StatelessWidget {
                   "1. Prendi il tuo VisionHelper.\n\n"
                   "2. Tieni premuto il pulsante fisico per 5 secondi.\n\n"
                   "3. Attendi la vibrazione e il segnale acustico.\n\n"
-                  "4. Torna in questa schermata e premi la Lente per cercare di nuovo.",
+                  "4. Torna in questa schermata e premi l'icona Radar/Bluetooth per cercare.",
                   style: TextStyle(fontSize: 24, color: Colors.white, height: 1.5),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 60), // Spazio al posto di Spacer
               Semantics(
                 button: true,
                 label: "Ho capito, torna indietro",
