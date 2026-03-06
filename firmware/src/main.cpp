@@ -1,3 +1,4 @@
+// src/main.cpp
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -141,9 +142,13 @@ void loop() {
   // isButtonPressed() intercetta internamente la pressione da 5s. 
   // Restituisce true SOLO per le pressioni brevi (scatto foto).
   if (isButtonPressed()) {
-    playBuzzerBeep(); 
+    
+    // STATO: CAPTURE
     Serial.println("\n--- Nuova Acquisizione AI ---");
     Serial.println("1. Scatto foto in corso...");
+    
+    // Conferma tattile dell'avvio acquisizione
+    vibrationShort(); 
     
     unsigned long startTime = millis();
     
@@ -156,19 +161,33 @@ void loop() {
     
     if (!last_photo) {
       Serial.println("ERRORE: Impossibile scattare la foto.");
+      vibrationLong(); // Segnala errore hardware all'utente
       return;
     }
 
     Serial.printf("   Foto acquisita! (%zu bytes)\n", last_photo->len);
     Serial.println("2. Elaborazione AI in corso... (Attesa risposta da Gemini)");
     
+    // STATO: PROCESSING
+    // Vibrazione intermittente per indicare che stiamo caricando i dati sul cloud
+    vibrationIntermittent();
+    
     // Invio immagine alle API
     String descrizione = inviaImmagineAGemini(last_photo->buf, last_photo->len);
     
-    // Stampa risultato
+    // STATO: OUTPUT
     Serial.println("\n--- Risultato Analisi Gemini ---");
     Serial.println(descrizione);
     Serial.println("--------------------------------");
+    
+    // Gestione Errori API
+    if (descrizione.startsWith("Errore")) {
+        vibrationLong(); // STATO: ERROR
+    } else {
+        // Successo: In futuro qui il testo verrà passato al sistema I2S
+        // Per ora segnaliamo che la risposta testuale è arrivata con un beep
+        playBuzzerBeep(); 
+    }
     
     unsigned long endTime = millis();
     Serial.printf("Tempo totale di elaborazione: %lu ms\n", (endTime - startTime));
